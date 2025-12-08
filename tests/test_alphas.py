@@ -177,11 +177,11 @@ class TestAlphaCalculations(unittest.TestCase):
         except Exception as e:
             self.fail(f"Alpha #1 raised an exception: {e}")
     
-    def test_alpha_002_no_error(self):
-        """Test that Alpha #2 calculates without error."""
+    def test_alpha_004_no_error(self):
+        """Test that Alpha #4 calculates without error."""
         engine = AlphaEngine(self.data)
         try:
-            result = engine.calculate('alpha_004')  # Use alpha 4 instead
+            result = engine.calculate('alpha_004')
             self.assertIsNotNone(result)
         except Exception as e:
             self.fail(f"Alpha #4 raised an exception: {e}")
