@@ -586,3 +586,630 @@ def list_available_alphas():
     return [f'alpha_{i:03d}' for i in range(1, 31)]
 
 
+
+
+# Additional Alphas (31-60)
+
+def alpha_031(data):
+    """
+    Alpha#31: ((rank(rank(rank(decay_linear((-1 * rank(rank(delta(close, 10)))), 10)))) + rank((-1 * delta(close, 3)))) + sign(scale(correlation(adv20, low, 12))))
+    """
+    close = data['close']
+    low = data['low']
+    volume = data['volume']
+    
+    adv20 = adv(volume, 20)
+    
+    # First part
+    delta_close = delta(close, 10)
+    rank1 = rank(delta_close)
+    rank2 = rank(rank1)
+    neg_rank = -1 * rank2
+    decay = ts_decay_linear(neg_rank, 10)
+    rank3 = rank(decay)
+    rank4 = rank(rank3)
+    rank5 = rank(rank4)
+    
+    # Second part
+    delta_close_3 = delta(close, 3)
+    rank6 = rank(-1 * delta_close_3)
+    
+    # Third part
+    corr = correlation(adv20, low, 12)
+    scaled = scale(corr)
+    sign_val = sign(scaled)
+    
+    return rank5 + rank6 + sign_val
+
+
+def alpha_032(data):
+    """
+    Alpha#32: (scale(((sum(close, 7) / 7) - close)) + (20 * scale(correlation(vwap, delay(close, 5), 230))))
+    """
+    close = data['close']
+    vwap = data.get('vwap', (data['high'] + data['low'] + data['close']) / 3)
+    
+    mean7 = ts_sum(close, 7) / 7
+    part1 = scale(mean7 - close)
+    
+    delayed_close = delay(close, 5)
+    corr = correlation(vwap, delayed_close, 230)
+    part2 = 20 * scale(corr)
+    
+    return part1 + part2
+
+
+def alpha_033(data):
+    """
+    Alpha#33: rank((-1 * ((1 - (open / close)) ^ 1)))
+    """
+    open_price = data['open']
+    close = data['close']
+    
+    ratio = 1 - (open_price / close)
+    result = -1 * power(ratio, 1)
+    
+    return rank(result)
+
+
+def alpha_034(data):
+    """
+    Alpha#34: rank(((1 - rank((stddev(returns, 2) / stddev(returns, 5)))) + (1 - rank(delta(close, 1)))))
+    """
+    close = data['close']
+    returns_data = returns(close, 1)
+    
+    std2 = ts_std(returns_data, 2)
+    std5 = ts_std(returns_data, 5)
+    ratio = std2 / std5
+    
+    part1 = 1 - rank(ratio)
+    
+    delta_close = delta(close, 1)
+    part2 = 1 - rank(delta_close)
+    
+    return rank(part1 + part2)
+
+
+def alpha_035(data):
+    """
+    Alpha#35: ((Ts_Rank(volume, 32) * (1 - Ts_Rank(((close + high) - low), 16))) * (1 - Ts_Rank(returns, 32)))
+    """
+    close = data['close']
+    high = data['high']
+    low = data['low']
+    volume = data['volume']
+    
+    returns_data = returns(close, 1)
+    
+    part1 = ts_rank(volume, 32)
+    
+    price_sum = close + high - low
+    part2 = 1 - ts_rank(price_sum, 16)
+    
+    part3 = 1 - ts_rank(returns_data, 32)
+    
+    return part1 * part2 * part3
+
+
+def alpha_036(data):
+    """
+    Alpha#36: (((((2.21 * rank(correlation((close - open), delay(volume, 1), 15))) + (0.7 * rank((open - close)))) + (0.73 * rank(Ts_Rank(delay((-1 * returns), 6), 5)))) + rank(abs(correlation(vwap, adv20, 6)))) + (0.6 * rank((((sum(close, 200) / 200) - open) * (close - open)))))
+    """
+    close = data['close']
+    open_price = data['open']
+    volume = data['volume']
+    vwap = data.get('vwap', (data['high'] + data['low'] + data['close']) / 3)
+    
+    returns_data = returns(close, 1)
+    adv20 = adv(volume, 20)
+    
+    # Part 1
+    price_diff = close - open_price
+    delayed_volume = delay(volume, 1)
+    corr1 = correlation(price_diff, delayed_volume, 15)
+    part1 = 2.21 * rank(corr1)
+    
+    # Part 2
+    part2 = 0.7 * rank(open_price - close)
+    
+    # Part 3
+    delayed_returns = delay(-1 * returns_data, 6)
+    ts_ranked = ts_rank(delayed_returns, 5)
+    part3 = 0.73 * rank(ts_ranked)
+    
+    # Part 4
+    corr2 = correlation(vwap, adv20, 6)
+    part4 = rank(abs_op(corr2))
+    
+    # Part 5
+    mean200 = ts_sum(close, 200) / 200
+    part5 = 0.6 * rank((mean200 - open_price) * (close - open_price))
+    
+    return part1 + part2 + part3 + part4 + part5
+
+
+def alpha_037(data):
+    """
+    Alpha#37: (rank(correlation(delay((open - close), 1), close, 200)) + rank((open - close)))
+    """
+    open_price = data['open']
+    close = data['close']
+    
+    diff = open_price - close
+    delayed_diff = delay(diff, 1)
+    
+    corr = correlation(delayed_diff, close, 200)
+    
+    return rank(corr) + rank(diff)
+
+
+def alpha_038(data):
+    """
+    Alpha#38: ((-1 * rank(Ts_Rank(close, 10))) * rank((close / open)))
+    """
+    close = data['close']
+    open_price = data['open']
+    
+    ts_ranked = ts_rank(close, 10)
+    part1 = -1 * rank(ts_ranked)
+    
+    ratio = close / open_price
+    part2 = rank(ratio)
+    
+    return part1 * part2
+
+
+def alpha_039(data):
+    """
+    Alpha#39: ((-1 * rank((delta(close, 7) * (1 - rank(decay_linear((volume / adv20), 9)))))) * (1 + rank(sum(returns, 250))))
+    """
+    close = data['close']
+    volume = data['volume']
+    
+    returns_data = returns(close, 1)
+    adv20 = adv(volume, 20)
+    
+    delta_close = delta(close, 7)
+    
+    volume_ratio = volume / adv20
+    decay = ts_decay_linear(volume_ratio, 9)
+    
+    part1 = -1 * rank(delta_close * (1 - rank(decay)))
+    
+    sum_returns = ts_sum(returns_data, 250)
+    part2 = 1 + rank(sum_returns)
+    
+    return part1 * part2
+
+
+def alpha_040(data):
+    """
+    Alpha#40: ((-1 * rank(stddev(high, 10))) * correlation(high, volume, 10))
+    """
+    high = data['high']
+    volume = data['volume']
+    
+    std_high = ts_std(high, 10)
+    part1 = -1 * rank(std_high)
+    
+    corr = correlation(high, volume, 10)
+    
+    return part1 * corr
+
+
+def alpha_041(data):
+    """
+    Alpha#41: (((high * low) ^ 0.5) - vwap)
+    """
+    high = data['high']
+    low = data['low']
+    vwap = data.get('vwap', (data['high'] + data['low'] + data['close']) / 3)
+    
+    geometric_mean = power(high * low, 0.5)
+    
+    return geometric_mean - vwap
+
+
+def alpha_042(data):
+    """
+    Alpha#42: (rank((vwap - close)) / rank((vwap + close)))
+    """
+    close = data['close']
+    vwap = data.get('vwap', (data['high'] + data['low'] + data['close']) / 3)
+    
+    numerator = rank(vwap - close)
+    denominator = rank(vwap + close)
+    
+    return numerator / denominator
+
+
+def alpha_043(data):
+    """
+    Alpha#43: (ts_rank((volume / adv20), 20) * ts_rank((-1 * delta(close, 7)), 8))
+    """
+    close = data['close']
+    volume = data['volume']
+    
+    adv20 = adv(volume, 20)
+    
+    volume_ratio = volume / adv20
+    part1 = ts_rank(volume_ratio, 20)
+    
+    delta_close = delta(close, 7)
+    part2 = ts_rank(-1 * delta_close, 8)
+    
+    return part1 * part2
+
+
+def alpha_044(data):
+    """
+    Alpha#44: (-1 * correlation(high, rank(volume), 5))
+    """
+    high = data['high']
+    volume = data['volume']
+    
+    rank_volume = rank(volume)
+    
+    corr = correlation(high, rank_volume, 5)
+    
+    return -1 * corr
+
+
+def alpha_045(data):
+    """
+    Alpha#45: (-1 * ((rank((sum(delay(close, 5), 20) / 20)) * correlation(close, volume, 2)) * rank(correlation(sum(close, 5), sum(close, 20), 2))))
+    """
+    close = data['close']
+    volume = data['volume']
+    
+    delayed_close = delay(close, 5)
+    sum_delayed = ts_sum(delayed_close, 20)
+    mean_delayed = sum_delayed / 20
+    part1 = rank(mean_delayed)
+    
+    corr1 = correlation(close, volume, 2)
+    
+    sum_close_5 = ts_sum(close, 5)
+    sum_close_20 = ts_sum(close, 20)
+    corr2 = correlation(sum_close_5, sum_close_20, 2)
+    part3 = rank(corr2)
+    
+    return -1 * part1 * corr1 * part3
+
+
+def alpha_046(data):
+    """
+    Alpha#46: ((0.25 < (((delay(close, 20) - delay(close, 10)) / 10) - ((delay(close, 10) - close) / 10))) ? (-1 * 1) : (((((delay(close, 20) - delay(close, 10)) / 10) - ((delay(close, 10) - close) / 10)) < 0) ? 1 : ((-1 * 1) * (close - delay(close, 1)))))
+    """
+    close = data['close']
+    
+    delayed_20 = delay(close, 20)
+    delayed_10 = delay(close, 10)
+    delayed_1 = delay(close, 1)
+    
+    slope1 = (delayed_20 - delayed_10) / 10
+    slope2 = (delayed_10 - close) / 10
+    diff = slope1 - slope2
+    
+    condition1 = diff > 0.25
+    condition2 = diff < 0
+    
+    result = condition(condition1, 
+                      pd.DataFrame(-1, index=close.index, columns=close.columns if hasattr(close, 'columns') else [0]),
+                      condition(condition2,
+                               pd.DataFrame(1, index=close.index, columns=close.columns if hasattr(close, 'columns') else [0]),
+                               -1 * (close - delayed_1)))
+    return result
+
+
+def alpha_047(data):
+    """
+    Alpha#47: ((((rank((1 / close)) * volume) / adv20) * ((high * rank((high - close))) / (sum(high, 5) / 5))) - rank((vwap - delay(vwap, 5))))
+    """
+    close = data['close']
+    high = data['high']
+    volume = data['volume']
+    vwap = data.get('vwap', (data['high'] + data['low'] + data['close']) / 3)
+    
+    adv20 = adv(volume, 20)
+    
+    # Part 1
+    rank_inv_close = rank(1 / close)
+    part1 = (rank_inv_close * volume) / adv20
+    
+    # Part 2
+    rank_diff = rank(high - close)
+    mean_high = ts_sum(high, 5) / 5
+    part2 = (high * rank_diff) / mean_high
+    
+    # Part 3
+    delayed_vwap = delay(vwap, 5)
+    part3 = rank(vwap - delayed_vwap)
+    
+    return part1 * part2 - part3
+
+
+def alpha_048(data):
+    """
+    Alpha#48: (indneutralize(((correlation(delta(close, 1), delta(delay(close, 1), 1), 250) * delta(close, 1)) / close), IndClass.subindustry) / sum(((delta(close, 1) / delay(close, 1)) ^ 2), 250))
+    """
+    close = data['close']
+    
+    delta_close = delta(close, 1)
+    delayed_close = delay(close, 1)
+    delta_delayed = delta(delayed_close, 1)
+    
+    corr = correlation(delta_close, delta_delayed, 250)
+    
+    numerator = (corr * delta_close) / close
+    numerator = indneutralize(numerator, None)
+    
+    returns_squared = power(delta_close / delayed_close, 2)
+    denominator = ts_sum(returns_squared, 250)
+    
+    return numerator / denominator
+
+
+def alpha_049(data):
+    """
+    Alpha#49: (((((delay(close, 20) - delay(close, 10)) / 10) - ((delay(close, 10) - close) / 10)) < (-1 * 0.1)) ? 1 : ((-1 * 1) * (close - delay(close, 1))))
+    """
+    close = data['close']
+    
+    delayed_20 = delay(close, 20)
+    delayed_10 = delay(close, 10)
+    delayed_1 = delay(close, 1)
+    
+    slope1 = (delayed_20 - delayed_10) / 10
+    slope2 = (delayed_10 - close) / 10
+    diff = slope1 - slope2
+    
+    condition_df = diff < -0.1
+    
+    result = condition(condition_df,
+                      pd.DataFrame(1, index=close.index, columns=close.columns if hasattr(close, 'columns') else [0]),
+                      -1 * (close - delayed_1))
+    return result
+
+
+def alpha_050(data):
+    """
+    Alpha#50: (-1 * ts_max(rank(correlation(rank(volume), rank(vwap), 5)), 5))
+    """
+    volume = data['volume']
+    vwap = data.get('vwap', (data['high'] + data['low'] + data['close']) / 3)
+    
+    rank_volume = rank(volume)
+    rank_vwap = rank(vwap)
+    
+    corr = correlation(rank_volume, rank_vwap, 5)
+    ranked_corr = rank(corr)
+    
+    max_val = ts_max(ranked_corr, 5)
+    
+    return -1 * max_val
+
+
+def alpha_051(data):
+    """
+    Alpha#51: (((((delay(close, 20) - delay(close, 10)) / 10) - ((delay(close, 10) - close) / 10)) < (-1 * 0.05)) ? 1 : ((-1 * 1) * (close - delay(close, 1))))
+    """
+    close = data['close']
+    
+    delayed_20 = delay(close, 20)
+    delayed_10 = delay(close, 10)
+    delayed_1 = delay(close, 1)
+    
+    slope1 = (delayed_20 - delayed_10) / 10
+    slope2 = (delayed_10 - close) / 10
+    diff = slope1 - slope2
+    
+    condition_df = diff < -0.05
+    
+    result = condition(condition_df,
+                      pd.DataFrame(1, index=close.index, columns=close.columns if hasattr(close, 'columns') else [0]),
+                      -1 * (close - delayed_1))
+    return result
+
+
+def alpha_052(data):
+    """
+    Alpha#52: ((((-1 * ts_min(low, 5)) + delay(ts_min(low, 5), 5)) * rank(((sum(returns, 240) - sum(returns, 20)) / 220))) * ts_rank(volume, 5))
+    """
+    low = data['low']
+    close = data['close']
+    volume = data['volume']
+    
+    returns_data = returns(close, 1)
+    
+    ts_min_low = ts_min(low, 5)
+    delayed_min = delay(ts_min_low, 5)
+    
+    part1 = -1 * ts_min_low + delayed_min
+    
+    sum_returns_240 = ts_sum(returns_data, 240)
+    sum_returns_20 = ts_sum(returns_data, 20)
+    returns_diff = (sum_returns_240 - sum_returns_20) / 220
+    part2 = rank(returns_diff)
+    
+    part3 = ts_rank(volume, 5)
+    
+    return part1 * part2 * part3
+
+
+def alpha_053(data):
+    """
+    Alpha#53: (-1 * delta((((close - low) - (high - close)) / (close - low)), 9))
+    """
+    close = data['close']
+    high = data['high']
+    low = data['low']
+    
+    numerator = (close - low) - (high - close)
+    denominator = close - low
+    
+    ratio = numerator / denominator
+    
+    return -1 * delta(ratio, 9)
+
+
+def alpha_054(data):
+    """
+    Alpha#54: ((-1 * ((low - close) * (open ^ 5))) / ((low - high) * (close ^ 5)))
+    """
+    open_price = data['open']
+    close = data['close']
+    high = data['high']
+    low = data['low']
+    
+    numerator = -1 * (low - close) * power(open_price, 5)
+    denominator = (low - high) * power(close, 5)
+    
+    return numerator / denominator
+
+
+def alpha_055(data):
+    """
+    Alpha#55: (-1 * correlation(rank(((close - ts_min(low, 12)) / (ts_max(high, 12) - ts_min(low, 12)))), rank(volume), 6))
+    """
+    close = data['close']
+    high = data['high']
+    low = data['low']
+    volume = data['volume']
+    
+    ts_min_low = ts_min(low, 12)
+    ts_max_high = ts_max(high, 12)
+    
+    stochastic = (close - ts_min_low) / (ts_max_high - ts_min_low)
+    rank_stochastic = rank(stochastic)
+    
+    rank_volume = rank(volume)
+    
+    corr = correlation(rank_stochastic, rank_volume, 6)
+    
+    return -1 * corr
+
+
+def alpha_056(data):
+    """
+    Alpha#56: (0 - (1 * (rank((sum(returns, 10) / sum(sum(returns, 2), 3))) * rank((returns * cap)))))
+    """
+    close = data['close']
+    volume = data['volume']
+    
+    returns_data = returns(close, 1)
+    
+    sum_returns_10 = ts_sum(returns_data, 10)
+    sum_returns_2 = ts_sum(returns_data, 2)
+    sum_sum = ts_sum(sum_returns_2, 3)
+    
+    ratio = sum_returns_10 / sum_sum
+    part1 = rank(ratio)
+    
+    # Using volume as proxy for cap (market capitalization)
+    cap = volume * close
+    part2 = rank(returns_data * cap)
+    
+    return -(1 * part1 * part2)
+
+
+def alpha_057(data):
+    """
+    Alpha#57: (0 - (1 * ((close - vwap) / decay_linear(rank(ts_argmax(close, 30)), 2))))
+    """
+    close = data['close']
+    vwap = data.get('vwap', (data['high'] + data['low'] + data['close']) / 3)
+    
+    ts_argmax_close = ts_argmax(close, 30)
+    ranked = rank(ts_argmax_close)
+    decay = ts_decay_linear(ranked, 2)
+    
+    return -1 * (close - vwap) / decay
+
+
+def alpha_058(data):
+    """
+    Alpha#58: (-1 * Ts_Rank(decay_linear(correlation(IndNeutralize(vwap, IndClass.sector), volume, 3.92795), 7.89291), 5.50322))
+    """
+    volume = data['volume']
+    vwap = data.get('vwap', (data['high'] + data['low'] + data['close']) / 3)
+    
+    neutralized = indneutralize(vwap, None)
+    
+    corr = correlation(neutralized, volume, 4)
+    decay = ts_decay_linear(corr, 8)
+    ts_ranked = ts_rank(decay, 6)
+    
+    return -1 * ts_ranked
+
+
+def alpha_059(data):
+    """
+    Alpha#59: (-1 * Ts_Rank(decay_linear(correlation(IndNeutralize(((vwap * 0.728317) + (vwap * (1 - 0.728317))), IndClass.industry), volume, 4.25197), 16.2289), 8.19648))
+    """
+    volume = data['volume']
+    vwap = data.get('vwap', (data['high'] + data['low'] + data['close']) / 3)
+    
+    weighted_vwap = (vwap * 0.728317) + (vwap * (1 - 0.728317))
+    neutralized = indneutralize(weighted_vwap, None)
+    
+    corr = correlation(neutralized, volume, 4)
+    decay = ts_decay_linear(corr, 16)
+    ts_ranked = ts_rank(decay, 8)
+    
+    return -1 * ts_ranked
+
+
+def alpha_060(data):
+    """
+    Alpha#60: (0 - (1 * ((2 * scale(rank(((((close - low) - (high - close)) / (high - low)) * volume)))) - scale(rank(ts_argmax(close, 10))))))
+    """
+    close = data['close']
+    high = data['high']
+    low = data['low']
+    volume = data['volume']
+    
+    price_position = ((close - low) - (high - close)) / (high - low)
+    weighted = price_position * volume
+    ranked1 = rank(weighted)
+    scaled1 = scale(ranked1)
+    
+    ts_argmax_close = ts_argmax(close, 10)
+    ranked2 = rank(ts_argmax_close)
+    scaled2 = scale(ranked2)
+    
+    return -(1 * ((2 * scaled1) - scaled2))
+
+
+# Update the get_alpha_function to include new alphas
+def get_alpha_function(alpha_name):
+    """Get alpha function by name."""
+    alpha_functions = {
+        'alpha_001': alpha_001, 'alpha_002': alpha_002, 'alpha_003': alpha_003,
+        'alpha_004': alpha_004, 'alpha_005': alpha_005, 'alpha_006': alpha_006,
+        'alpha_007': alpha_007, 'alpha_008': alpha_008, 'alpha_009': alpha_009,
+        'alpha_010': alpha_010, 'alpha_011': alpha_011, 'alpha_012': alpha_012,
+        'alpha_013': alpha_013, 'alpha_014': alpha_014, 'alpha_015': alpha_015,
+        'alpha_016': alpha_016, 'alpha_017': alpha_017, 'alpha_018': alpha_018,
+        'alpha_019': alpha_019, 'alpha_020': alpha_020, 'alpha_021': alpha_021,
+        'alpha_022': alpha_022, 'alpha_023': alpha_023, 'alpha_024': alpha_024,
+        'alpha_025': alpha_025, 'alpha_026': alpha_026, 'alpha_027': alpha_027,
+        'alpha_028': alpha_028, 'alpha_029': alpha_029, 'alpha_030': alpha_030,
+        'alpha_031': alpha_031, 'alpha_032': alpha_032, 'alpha_033': alpha_033,
+        'alpha_034': alpha_034, 'alpha_035': alpha_035, 'alpha_036': alpha_036,
+        'alpha_037': alpha_037, 'alpha_038': alpha_038, 'alpha_039': alpha_039,
+        'alpha_040': alpha_040, 'alpha_041': alpha_041, 'alpha_042': alpha_042,
+        'alpha_043': alpha_043, 'alpha_044': alpha_044, 'alpha_045': alpha_045,
+        'alpha_046': alpha_046, 'alpha_047': alpha_047, 'alpha_048': alpha_048,
+        'alpha_049': alpha_049, 'alpha_050': alpha_050, 'alpha_051': alpha_051,
+        'alpha_052': alpha_052, 'alpha_053': alpha_053, 'alpha_054': alpha_054,
+        'alpha_055': alpha_055, 'alpha_056': alpha_056, 'alpha_057': alpha_057,
+        'alpha_058': alpha_058, 'alpha_059': alpha_059, 'alpha_060': alpha_060,
+    }
+    return alpha_functions.get(alpha_name)
+
+
+def list_available_alphas():
+    """List all implemented alpha names."""
+    return [f'alpha_{i:03d}' for i in range(1, 61)]
