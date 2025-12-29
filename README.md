@@ -1,38 +1,47 @@
-# 101 Alphas Implementation
+# 101 Alphas Research Platform
 
-This project implements a subset of the 101 Alphas (Kakushadze, 2016) and provides a Streamlit UI to visualize them.
+A modular, robust, and educational platform for quantitative research based on the "101 Formulaic Alphas" paper (Kakushadze, 2016).
 
-## Setup
+## Key Features
 
-1.  **Install Dependencies**:
-    ```bash
-    pip install -r pyproject.toml # or manually pip install streamlit duckdb pandas numpy scipy plotly
-    ```
-    (Note: Dependencies were added to `pyproject.toml` and installed in the environment)
+-   **Data Agnostic Architecture**: The system ingests standard "Long Format" data (Database/CSV style) and internally converts it to strictly aligned "Wide Format" matrices. This prevents common indexing errors and alignment bugs found in ad-hoc research scripts.
+-   **Robust Engine**: The `MarketData` container guarantees that all fields (`Open`, `Close`, `Volume`, etc.) share the exact same Time x Ticker index.
+-   **Educational Frontend**: A Streamlit UI that displays the Mathematical Formula (LaTeX), the Python Code, and the Visual Output side-by-step.
+-   **Modular Operators**: Core primitives (`rank`, `delay`, `signedpower`) are isolated in `src/operators.py`, making the code self-documenting.
 
-2.  **Data**:
-    The system expects a DuckDB database at `/workspace/sp500.db`.
-    -   If not found, `data.py` will automatically create a synthetic dataset for testing purposes.
-    -   The synthetic data includes 10 tickers (AAPL, MSFT, etc.) with OHLCV data.
+## Quick Start
 
-## Running the App
+### 1. Installation
 
-Run the Streamlit frontend:
+The project uses `pyproject.toml` for dependencies.
+
+```bash
+pip install -r pyproject.toml
+# OR if using uv (recommended)
+uv pip install -r pyproject.toml
+```
+
+### 2. Run the App
 
 ```bash
 streamlit run app.py
 ```
 
-## Structure
+## Architecture
 
--   `alphas.py`: Contains the `AlphaEngine` class and alpha definitions (Alphas 1-6, 9, 101).
--   `data.py`: Handles data loading (DuckDB) and synthetic data generation.
--   `app.py`: Streamlit dashboard.
--   `check_setup.py`: Script to verify the backend without the UI.
+-   **`src/market_data.py`**: The core container. It takes raw data, pivots it, aligns indices, and provides safe accessors (e.g., `data.close`).
+-   **`src/operators.py`**: Vectorized implementations of the alpha primitives.
+-   **`src/definitions.py`**: The Alphas themselves, defined as functions of `MarketData`.
+-   **`src/data_loader.py`**: Adapter for loading data from DuckDB (or generating synthetic test data).
 
-## Notes & Assumptions
+## Extending
 
--   **Data Source**: We assume the input is a set of stocks (S&P 500 components).
--   **SPX Benchmark**: The S&P 500 index (SPX) is approximated as the mean of the available components (Equal Weighted) since market cap data might be missing.
--   **Missing Fields**: VWAP is approximated as `(High + Low + Close) / 3` if not present in the database.
--   **Implementation**: A subset of alphas are implemented to demonstrate the architecture. Adding more is straightforward in `alphas.py`.
+To add a new Alpha:
+1.  Open `src/definitions.py`.
+2.  Define a function `alpha_XXX(data: MarketData)`.
+3.  Register it in `ALPHA_REGISTRY` with its LaTeX formula and description.
+
+## Robustness Notes
+
+-   **Alignment**: The `MarketData` class reindexes all inputs to a shared `(Date, Ticker)` grid upon initialization.
+-   **Missing Data**: Forward-filling and Backward-filling are applied by default to handle sparse data, ensuring Alphas don't break on isolated NaNs.

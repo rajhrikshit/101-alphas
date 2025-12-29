@@ -3,20 +3,19 @@ import pandas as pd
 import numpy as np
 import os
 from datetime import datetime
-from src.engine import MarketData
+from src.market_data import MarketData
 
 # Fallback paths
 DB_PATH = '/workspace/sp500.db'
 ORIGINAL_DB_PATH = '/Users/hrikshit/duckdb/markets/na/sp500.db'
 
-def generate_synthetic_data(start_date, end_date):
-    """Generates synthetic stock data for testing."""
+def generate_synthetic_df(start_date, end_date):
+    """Generates synthetic stock data in Long format."""
     dates = pd.date_range(start=start_date, end=end_date, freq='B')
     tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'BRK.B', 'JPM', 'JNJ']
     
     data = []
     for ticker in tickers:
-        # Random walk for price
         prices = 100 + np.cumsum(np.random.randn(len(dates)))
         prices = np.maximum(prices, 1.0)
         
@@ -25,7 +24,7 @@ def generate_synthetic_data(start_date, end_date):
             open_p = close * (1 + np.random.randn() * 0.01)
             high = max(open_p, close) * (1 + abs(np.random.randn()) * 0.005)
             low = min(open_p, close) * (1 - abs(np.random.randn()) * 0.005)
-            vol = np.random.randint(100000, 10000000)
+            vol = int(np.random.randint(100000, 10000000))
             
             data.append({
                 'Date': date,
@@ -43,13 +42,13 @@ def ensure_db_exists(path):
     if os.path.exists(path):
         return
     print(f"Database not found at {path}. Creating synthetic data...")
-    df = generate_synthetic_data('2018-01-01', datetime.today().strftime('%Y-%m-%d'))
+    df = generate_synthetic_df('2018-01-01', datetime.today().strftime('%Y-%m-%d'))
     with duckdb.connect(path) as con:
         con.execute("CREATE TABLE history AS SELECT * FROM df")
 
 def load_market_data(start_date='2020-01-01', end_date=None) -> MarketData:
     """
-    Loads data from DuckDB (or synthetic fallback) and returns a MarketData object.
+    Loads raw data from DuckDB (or synthetic) and returns a robust MarketData object.
     """
     if end_date is None:
         end_date = datetime.today().date()
@@ -63,42 +62,16 @@ def load_market_data(start_date='2020-01-01', end_date=None) -> MarketData:
             tables = con.execute("SHOW TABLES").fetchall()
             table_name = 'history'
             if (table_name,) not in tables:
-                 # Fallback if table names differ
                  if tables: table_name = tables[0][0]
 
             qry = f"select * from {table_name} where Date between '{start_date}' and '{end_date}'"
             df = con.execute(qry).df()
     except Exception as e:
-        print(f"Error loading DB: {e}. using synthetic.")
-        df = generate_synthetic_data(start_date, str(end_date))
+        print(f"Error loading DB: {e}. Using synthetic.")
+        df = generate_synthetic_df(start_date, str(end_date))
 
     if df.empty:
         raise ValueError("Loaded data is empty.")
 
-    # Pivot and Clean
-    df['Date'] = pd.to_datetime(df['Date'])
-    
-    closes = df.pivot(index='Date', columns='Ticker', values='Close').ffill().bfill()
-    opens = df.pivot(index='Date', columns='Ticker', values='Open').ffill().bfill()
-    highs = df.pivot(index='Date', columns='Ticker', values='High').ffill().bfill()
-    lows = df.pivot(index='Date', columns='Ticker', values='Low').ffill().bfill()
-    volumes = df.pivot(index='Date', columns='Ticker', values='Volume').ffill().bfill()
-    
-    returns = closes.pct_change()
-    
-    # Calculate VWAP if not present (approx)
-    vwap = (highs + lows + closes) / 3
-    
-    # Calculate Benchmark (Equal Weighted Index of available tickers)
-    benchmark = closes.mean(axis=1)
-
-    return MarketData(
-        closes=closes,
-        opens=opens,
-        highs=highs,
-        lows=lows,
-        volumes=volumes,
-        vwap=vwap,
-        returns=returns,
-        benchmark=benchmark
-    )
+    # Create MarketData object (Handles pivoting, alignment, validation)
+    return MarketData(df)
