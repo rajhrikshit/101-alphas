@@ -5,7 +5,7 @@ from src.definitions import alpha_101
 def check():
     print("Loading data...")
     data = load_market_data()
-    print(f"Data loaded: {data.closes.shape}")
+    print(f"Data loaded: {data.close.shape}")
     
     engine = AlphaEngine(data)
     print("Running Alpha 101...")

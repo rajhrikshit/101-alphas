@@ -38,10 +38,12 @@ st.markdown("""
 @st.cache_resource
 def get_system():
     try:
+        # load_market_data returns a robust MarketData object now
         data = load_market_data()
         engine = AlphaEngine(data)
         return engine
     except Exception as e:
+        print(e)
         return None
 
 engine = get_system()
@@ -95,6 +97,10 @@ try:
     
     # Calculate performance metrics
     fwd_returns = engine.data.returns.shift(-1)
+    
+    # Ensure fwd_returns is aligned (MarketData guarantees it usually, but safety first)
+    fwd_returns = fwd_returns.reindex(alpha_values.index)
+    
     ic_series = alpha_values.corrwith(fwd_returns, axis=1, method='spearman')
     mean_ic = ic_series.mean()
     ic_ir = mean_ic / ic_series.std() if ic_series.std() != 0 else 0
@@ -105,7 +111,7 @@ try:
     kpi1.metric("Information Coefficient (Mean)", f"{mean_ic:.4f}")
     kpi2.metric("Information Ratio", f"{ic_ir:.4f}")
     kpi3.metric("Coverage (Non-NaN)", f"{1 - alpha_values.isna().mean().mean():.1%}")
-    kpi4.metric("Turnover Proxy", "High" if selected_alpha_id in [1,2,3] else "Med") # Placeholder logic
+    kpi4.metric("Turnover Proxy", "High" if selected_alpha_id in [1,2,3] else "Med") 
 
     # Tabs
     tab_analysis, tab_drilldown, tab_educational = st.tabs(["Strategy Analysis", "Ticker Drilldown", "Microscope (Step-by-Step)"])
@@ -132,7 +138,8 @@ try:
         
         # Dual axis: Price vs Alpha
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=engine.dates, y=engine.data.closes[ticker], name="Price", line=dict(color='gray')))
+        # Use data.close instead of closes
+        fig.add_trace(go.Scatter(x=engine.dates, y=engine.data.close[ticker], name="Price", line=dict(color='gray')))
         fig.add_trace(go.Scatter(x=engine.dates, y=alpha_values[ticker], name="Alpha Signal", yaxis="y2", line=dict(color='#00ff00')))
         
         fig.update_layout(
@@ -149,7 +156,6 @@ try:
             st.markdown("### 🔬 Alpha Microscope")
             st.write("Understand how the components of the alpha interact.")
             
-            # Deconstruct Alpha 101 as an example if selected, or generic help
             if selected_alpha_id == 101:
                 st.markdown("#### Breakdown of Alpha 101")
                 st.latex(r"\alpha = \frac{\text{Close} - \text{Open}}{(\text{High} - \text{Low}) + 0.001}")
@@ -158,10 +164,10 @@ try:
                 col_a, col_b = st.columns(2)
                 with col_a:
                     st.write("**Numerator (Body)**")
-                    st.line_chart((engine.data.closes[ticker] - engine.data.opens[ticker]).tail(50))
+                    st.line_chart((engine.data.close[ticker] - engine.data.open[ticker]).tail(50))
                 with col_b:
                     st.write("**Denominator (Range)**")
-                    st.line_chart((engine.data.highs[ticker] - engine.data.lows[ticker]).tail(50))
+                    st.line_chart((engine.data.high[ticker] - engine.data.low[ticker]).tail(50))
             
             elif selected_alpha_id == 6:
                 st.markdown("#### Breakdown of Alpha 6")
@@ -171,13 +177,13 @@ try:
                 col_a, col_b = st.columns(2)
                 with col_a:
                     st.write("**Open Price**")
-                    st.line_chart(engine.data.opens[ticker].tail(50))
+                    st.line_chart(engine.data.open[ticker].tail(50))
                 with col_b:
                     st.write("**Volume**")
-                    st.line_chart(engine.data.volumes[ticker].tail(50))
+                    st.line_chart(engine.data.volume[ticker].tail(50))
                     
             else:
-                st.info("Select Alpha 6 or 101 for a detailed component breakdown example, or view the source code in the 'Theoretical Framework' section.")
+                st.info("Select Alpha 6 or 101 for a detailed component breakdown example.")
         else:
             st.info("Enable Educational Mode in the sidebar to see detailed breakdowns.")
 
