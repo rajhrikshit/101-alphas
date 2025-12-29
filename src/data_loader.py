@@ -1,12 +1,12 @@
-from datetime import datetime, timedelta
 import duckdb
 import pandas as pd
 import numpy as np
 import os
+from datetime import datetime
+from src.engine import MarketData
 
-# Use a local path for the workspace environment
+# Fallback paths
 DB_PATH = '/workspace/sp500.db'
-# Fallback/Original path from user
 ORIGINAL_DB_PATH = '/Users/hrikshit/duckdb/markets/na/sp500.db'
 
 def generate_synthetic_data(start_date, end_date):
@@ -18,7 +18,6 @@ def generate_synthetic_data(start_date, end_date):
     for ticker in tickers:
         # Random walk for price
         prices = 100 + np.cumsum(np.random.randn(len(dates)))
-        # Ensure positive
         prices = np.maximum(prices, 1.0)
         
         for i, date in enumerate(dates):
@@ -35,51 +34,71 @@ def generate_synthetic_data(start_date, end_date):
                 'High': high,
                 'Low': low,
                 'Close': close,
-                'Volume': vol,
-                # Include fields that might be expected
-                'Dividends': 0.0,
-                'Stock Splits': 0.0
+                'Volume': vol
             })
             
     return pd.DataFrame(data)
 
-def ensure_db_exists():
-    """Checks if DB exists, if not creates it with synthetic data."""
-    if os.path.exists(DB_PATH):
+def ensure_db_exists(path):
+    if os.path.exists(path):
         return
-
-    print(f"Database not found at {DB_PATH}. Creating synthetic data...")
-    # Generate data from 2010 to today
+    print(f"Database not found at {path}. Creating synthetic data...")
     df = generate_synthetic_data('2018-01-01', datetime.today().strftime('%Y-%m-%d'))
-    
-    with duckdb.connect(DB_PATH) as con:
+    with duckdb.connect(path) as con:
         con.execute("CREATE TABLE history AS SELECT * FROM df")
-    print("Synthetic database created.")
 
-def load_sp500(table_name='history', start_date='2020-01-01', end_date=None):
+def load_market_data(start_date='2020-01-01', end_date=None) -> MarketData:
+    """
+    Loads data from DuckDB (or synthetic fallback) and returns a MarketData object.
+    """
     if end_date is None:
         end_date = datetime.today().date()
         
-    # Check if we are in the original environment or cloud
     db_path = ORIGINAL_DB_PATH if os.path.exists(ORIGINAL_DB_PATH) else DB_PATH
-    
     if db_path == DB_PATH:
-        ensure_db_exists()
+        ensure_db_exists(DB_PATH)
         
     try:
         with duckdb.connect(db_path) as con:
-            # Check if table exists
             tables = con.execute("SHOW TABLES").fetchall()
+            table_name = 'history'
             if (table_name,) not in tables:
-                # If using synthetic DB, we only created 'history'
-                 if table_name != 'history':
-                     print(f"Table {table_name} not found. Using 'history'.")
-                     table_name = 'history'
+                 # Fallback if table names differ
+                 if tables: table_name = tables[0][0]
 
             qry = f"select * from {table_name} where Date between '{start_date}' and '{end_date}'"
-            history = con.execute(qry).df()
-            return history
+            df = con.execute(qry).df()
     except Exception as e:
-        print(f"Error loading data: {e}")
-        # Fallback to generating dataframe directly if DB fails
-        return generate_synthetic_data(start_date, str(end_date))
+        print(f"Error loading DB: {e}. using synthetic.")
+        df = generate_synthetic_data(start_date, str(end_date))
+
+    if df.empty:
+        raise ValueError("Loaded data is empty.")
+
+    # Pivot and Clean
+    df['Date'] = pd.to_datetime(df['Date'])
+    
+    closes = df.pivot(index='Date', columns='Ticker', values='Close').ffill().bfill()
+    opens = df.pivot(index='Date', columns='Ticker', values='Open').ffill().bfill()
+    highs = df.pivot(index='Date', columns='Ticker', values='High').ffill().bfill()
+    lows = df.pivot(index='Date', columns='Ticker', values='Low').ffill().bfill()
+    volumes = df.pivot(index='Date', columns='Ticker', values='Volume').ffill().bfill()
+    
+    returns = closes.pct_change()
+    
+    # Calculate VWAP if not present (approx)
+    vwap = (highs + lows + closes) / 3
+    
+    # Calculate Benchmark (Equal Weighted Index of available tickers)
+    benchmark = closes.mean(axis=1)
+
+    return MarketData(
+        closes=closes,
+        opens=opens,
+        highs=highs,
+        lows=lows,
+        volumes=volumes,
+        vwap=vwap,
+        returns=returns,
+        benchmark=benchmark
+    )
