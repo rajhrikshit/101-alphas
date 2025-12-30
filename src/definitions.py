@@ -215,25 +215,109 @@ def alpha_101(data: MarketData) -> pd.DataFrame:
 
 # Registry for automatic discovery
 ALPHA_REGISTRY = {
-    1: {"func": alpha_001},
-    2: {"func": alpha_002},
-    3: {"func": alpha_003},
-    4: {"func": alpha_004},
-    5: {"func": alpha_005},
-    6: {"func": alpha_006},
-    7: {"func": alpha_007},
-    8: {"func": alpha_008},
-    9: {"func": alpha_009},
-    10: {"func": alpha_010},
-    11: {"func": alpha_011},
-    12: {"func": alpha_012},
-    13: {"func": alpha_013},
-    14: {"func": alpha_014},
-    15: {"func": alpha_015},
-    16: {"func": alpha_016},
-    17: {"func": alpha_017},
-    18: {"func": alpha_018},
-    19: {"func": alpha_019},
-    20: {"func": alpha_020},
-    101: {"func": alpha_101}
+    1: {
+        "func": alpha_001,
+        "description": "Rank of time-series argument max of signed power. Uses volatility when returns are negative, otherwise uses close price.",
+        "latex": r"\alpha_1 = \text{rank}\left(\text{Ts\_ArgMax}\left(\text{SignedPower}\left(\begin{cases} \text{stddev}(r, 20) & \text{if } r < 0 \\ \text{close} & \text{otherwise} \end{cases}, 2\right), 5\right)\right) - 0.5"
+    },
+    2: {
+        "func": alpha_002,
+        "description": "Negative correlation between ranked delta of log volume and ranked price change ratio.",
+        "latex": r"\alpha_2 = -1 \times \text{correlation}\left(\text{rank}\left(\Delta(\log(V), 2)\right), \text{rank}\left(\frac{C - O}{O}\right), 6\right)"
+    },
+    3: {
+        "func": alpha_003,
+        "description": "Negative correlation between ranked open price and ranked volume.",
+        "latex": r"\alpha_3 = -1 \times \text{correlation}\left(\text{rank}(O), \text{rank}(V), 10\right)"
+    },
+    4: {
+        "func": alpha_004,
+        "description": "Negative time-series rank of ranked low prices.",
+        "latex": r"\alpha_4 = -1 \times \text{Ts\_Rank}\left(\text{rank}(L), 9\right)"
+    },
+    5: {
+        "func": alpha_005,
+        "description": "Rank of open deviation from VWAP mean multiplied by negative absolute rank of close deviation from VWAP.",
+        "latex": r"\alpha_5 = \text{rank}\left(O - \frac{\sum(\text{VWAP}, 10)}{10}\right) \times \left(-1 \times |\text{rank}(C - \text{VWAP})|\right)"
+    },
+    6: {
+        "func": alpha_006,
+        "description": "Negative correlation between open price and volume.",
+        "latex": r"\alpha_6 = -1 \times \text{correlation}(O, V, 10)"
+    },
+    7: {
+        "func": alpha_007,
+        "description": "Conditional alpha based on volume vs average daily volume. Uses time-series rank of absolute delta when volume exceeds ADV20.",
+        "latex": r"\alpha_7 = \begin{cases} -1 \times \text{Ts\_Rank}(|\Delta(C, 7)|, 60) \times \text{sign}(\Delta(C, 7)) & \text{if } \text{ADV}_{20} < V \\ -1 & \text{otherwise} \end{cases}"
+    },
+    8: {
+        "func": alpha_008,
+        "description": "Negative rank of the difference between current and delayed product of sum of open and sum of returns.",
+        "latex": r"\alpha_8 = -1 \times \text{rank}\left(\left(\sum(O, 5) \times \sum(r, 5)\right) - \text{delay}\left(\sum(O, 5) \times \sum(r, 5), 10\right)\right)"
+    },
+    9: {
+        "func": alpha_009,
+        "description": "Conditional delta of close price based on recent trend direction.",
+        "latex": r"\alpha_9 = \begin{cases} \Delta(C, 1) & \text{if } \text{Ts\_Min}(\Delta(C, 1), 5) > 0 \\ \Delta(C, 1) & \text{if } \text{Ts\_Max}(\Delta(C, 1), 5) < 0 \\ -\Delta(C, 1) & \text{otherwise} \end{cases}"
+    },
+    10: {
+        "func": alpha_010,
+        "description": "Rank of conditional delta of close price based on recent trend direction.",
+        "latex": r"\alpha_{10} = \text{rank}\left(\begin{cases} \Delta(C, 1) & \text{if } \text{Ts\_Min}(\Delta(C, 1), 4) > 0 \\ \Delta(C, 1) & \text{if } \text{Ts\_Max}(\Delta(C, 1), 4) < 0 \\ -\Delta(C, 1) & \text{otherwise} \end{cases}\right)"
+    },
+    11: {
+        "func": alpha_011,
+        "description": "Sum of ranks of max and min VWAP-close differences, multiplied by rank of volume delta.",
+        "latex": r"\alpha_{11} = \left(\text{rank}\left(\text{Ts\_Max}(\text{VWAP} - C, 3)\right) + \text{rank}\left(\text{Ts\_Min}(\text{VWAP} - C, 3)\right)\right) \times \text{rank}(\Delta(V, 3))"
+    },
+    12: {
+        "func": alpha_012,
+        "description": "Sign of volume delta multiplied by negative close delta.",
+        "latex": r"\alpha_{12} = \text{sign}(\Delta(V, 1)) \times \left(-1 \times \Delta(C, 1)\right)"
+    },
+    13: {
+        "func": alpha_013,
+        "description": "Negative rank of covariance between ranked close and ranked volume.",
+        "latex": r"\alpha_{13} = -1 \times \text{rank}\left(\text{covariance}\left(\text{rank}(C), \text{rank}(V), 5\right)\right)"
+    },
+    14: {
+        "func": alpha_014,
+        "description": "Negative rank of returns delta multiplied by correlation between open and volume.",
+        "latex": r"\alpha_{14} = \left(-1 \times \text{rank}(\Delta(r, 3))\right) \times \text{correlation}(O, V, 10)"
+    },
+    15: {
+        "func": alpha_015,
+        "description": "Negative sum of ranked correlation between ranked high and ranked volume.",
+        "latex": r"\alpha_{15} = -1 \times \sum\left(\text{rank}\left(\text{correlation}\left(\text{rank}(H), \text{rank}(V), 3\right)\right), 3\right)"
+    },
+    16: {
+        "func": alpha_016,
+        "description": "Negative rank of covariance between ranked high and ranked volume.",
+        "latex": r"\alpha_{16} = -1 \times \text{rank}\left(\text{covariance}\left(\text{rank}(H), \text{rank}(V), 5\right)\right)"
+    },
+    17: {
+        "func": alpha_017,
+        "description": "Product of negative rank of time-series rank of close, rank of double delta of close, and rank of time-series rank of volume to ADV20 ratio.",
+        "latex": r"\alpha_{17} = \left(-1 \times \text{rank}\left(\text{Ts\_Rank}(C, 10)\right)\right) \times \text{rank}\left(\Delta(\Delta(C, 1), 1)\right) \times \text{rank}\left(\text{Ts\_Rank}\left(\frac{V}{\text{ADV}_{20}}, 5\right)\right)"
+    },
+    18: {
+        "func": alpha_018,
+        "description": "Negative rank of sum of standard deviation of absolute close-open difference, close-open difference, and correlation between close and open.",
+        "latex": r"\alpha_{18} = -1 \times \text{rank}\left(\text{stddev}(|C - O|, 5) + (C - O) + \text{correlation}(C, O, 10)\right)"
+    },
+    19: {
+        "func": alpha_019,
+        "description": "Negative sign of close momentum multiplied by one plus rank of cumulative returns.",
+        "latex": r"\alpha_{19} = \left(-1 \times \text{sign}\left((C - \text{delay}(C, 7)) + \Delta(C, 7)\right)\right) \times \left(1 + \text{rank}\left(1 + \sum(r, 250)\right)\right)"
+    },
+    20: {
+        "func": alpha_020,
+        "description": "Product of negative rank of open minus delayed high, rank of open minus delayed close, and rank of open minus delayed low.",
+        "latex": r"\alpha_{20} = \left(-1 \times \text{rank}(O - \text{delay}(H, 1))\right) \times \text{rank}(O - \text{delay}(C, 1)) \times \text{rank}(O - \text{delay}(L, 1))"
+    },
+    101: {
+        "func": alpha_101,
+        "description": "Normalized price position within the daily range. Measures where the candle closed relative to its total range.",
+        "latex": r"\alpha_{101} = \frac{C - O}{(H - L) + 0.001}"
+    }
 }
