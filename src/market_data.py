@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from typing import List, Optional, Union, Dict
+from typing import List, Optional, Union, Dict, Literal
 
 class MarketData:
     """
@@ -14,12 +14,13 @@ class MarketData:
     
     REQUIRED_FIELDS = ['close', 'open', 'high', 'low', 'volume']
     
-    def __init__(self, df: pd.DataFrame, schema: Dict[str, str] = None):
+    def __init__(self, df: Union[pd.DataFrame, Dict[str, pd.DataFrame]], schema: Dict[str, str] = None):
         """
-        Initialize from a Long-format DataFrame.
+        Initialize from a Long-format DataFrame or a Dict of Wide DataFrames.
         
         Args:
             df: DataFrame with at least Date, Ticker, and OHLCV columns.
+                OR Dict[str, pd.DataFrame] where keys are fields and values are Time x Ticker matrices.
             schema: Mapping of standard names to column names in df. 
                     Default: {'date': 'Date', 'ticker': 'Ticker', 'open': 'Open', ...}
         """
@@ -38,9 +39,34 @@ class MarketData:
         self.tickers: List[str] = []
         self.dates: List[pd.Timestamp] = []
         
-        self._process_data(df)
+        if isinstance(df, dict):
+            self._init_from_dict(df)
+        else:
+            self._process_data(df)
+            
         self._derive_missing_fields()
         
+    def _init_from_dict(self, data_dict: Dict[str, pd.DataFrame]):
+        """Initialize directly from aligned matrices (useful for subsets/baskets)."""
+        if not data_dict:
+            raise ValueError("Empty data dictionary provided")
+            
+        self._data = data_dict.copy()
+        
+        # Validate alignment
+        ref_key = list(self._data.keys())[0]
+        ref_df = self._data[ref_key]
+        self.dates = ref_df.index.tolist()
+        self.tickers = ref_df.columns.tolist()
+        
+        for k, v in self._data.items():
+            if not v.index.equals(ref_df.index) or not v.columns.equals(ref_df.columns):
+                # Try to align if indices match but are just ordered differently or subset
+                if set(v.index) == set(ref_df.index) and set(v.columns) == set(ref_df.columns):
+                     self._data[k] = v.reindex(index=ref_df.index, columns=ref_df.columns)
+                else:
+                    raise ValueError(f"Field {k} is not aligned with {ref_key}")
+
     def _process_data(self, df: pd.DataFrame):
         # Validate schema
         col_map = {v: k for k, v in self._schema.items()}
@@ -124,3 +150,67 @@ class MarketData:
         
         self._data[name] = df
 
+    def subset(self, tickers: List[str]) -> 'MarketData':
+        """
+        Returns a new MarketData instance containing only the specified tickers.
+        """
+        valid_tickers = [t for t in tickers if t in self.tickers]
+        if not valid_tickers:
+            raise ValueError(f"No valid tickers found in subset request. Available: {self.tickers[:5]}...")
+            
+        new_data = {k: v[valid_tickers].copy() for k, v in self._data.items()}
+        return MarketData(new_data)
+
+    def create_basket(self, name: str = "BASKET", method: Literal['equal', 'price'] = 'equal', tickers: List[str] = None) -> 'MarketData':
+        """
+        Creates a synthetic MarketData instance containing a single ticker representing the basket.
+        
+        Args:
+            name: Name of the synthetic ticker
+            method: 'equal' (Equal Weighted) or 'price' (Price Weighted)
+            tickers: Optional subset of tickers to include. If None, uses all.
+        """
+        source = self if tickers is None else self.subset(tickers)
+        
+        basket_data = {}
+        
+        if method == 'price':
+            # Price Weighted: Sum of prices
+            basket_data['close'] = source.close.sum(axis=1).to_frame(name)
+            basket_data['open'] = source.open.sum(axis=1).to_frame(name)
+            basket_data['high'] = source.high.sum(axis=1).to_frame(name)
+            basket_data['low'] = source.low.sum(axis=1).to_frame(name)
+            basket_data['volume'] = source.volume.sum(axis=1).to_frame(name)
+            # Recalculate VWAP
+            basket_data['vwap'] = (basket_data['high'] + basket_data['low'] + basket_data['close']) / 3
+            
+        elif method == 'equal':
+            # Equal Weighted: Average Returns index
+            # Index starts at 1.0
+            daily_returns = source.returns.mean(axis=1).fillna(0)
+            # Create a price series starting at 100
+            index_curve = 100 * (1 + daily_returns).cumprod()
+            
+            basket_data['close'] = index_curve.to_frame(name)
+            basket_data['volume'] = source.volume.sum(axis=1).to_frame(name)
+            
+            # Synthesize OHL based on constituents average intraday moves relative to previous close
+            # This is an approximation
+            avg_open_ret = (source.open / source.close.shift(1) - 1).mean(axis=1).fillna(0)
+            avg_high_ret = (source.high / source.close.shift(1) - 1).mean(axis=1).fillna(0)
+            avg_low_ret = (source.low / source.close.shift(1) - 1).mean(axis=1).fillna(0)
+            
+            prev_close = basket_data['close'].shift(1).fillna(100)
+            
+            basket_data['open'] = prev_close.multiply(1 + avg_open_ret, axis=0)
+            basket_data['high'] = prev_close.multiply(1 + avg_high_ret, axis=0)
+            basket_data['low'] = prev_close.multiply(1 + avg_low_ret, axis=0)
+            
+            # Fix initial day
+            basket_data['open'].iloc[0] = basket_data['close'].iloc[0]
+            basket_data['high'].iloc[0] = basket_data['close'].iloc[0]
+            basket_data['low'].iloc[0] = basket_data['close'].iloc[0]
+            
+            basket_data['vwap'] = basket_data['close']
+
+        return MarketData(basket_data)
