@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from typing import Optional
 
 """
 101 Alphas Operators
@@ -89,6 +90,14 @@ def decay_linear(df: pd.DataFrame, period: int) -> pd.DataFrame:
     
     return df.rolling(period).apply(lambda x: np.dot(x, weights) / sum_weights, raw=True)
 
+def ts_sum(df: pd.DataFrame, window: int) -> pd.DataFrame:
+    """Time-series sum over the past 'window' days."""
+    return df.rolling(window).sum()
+
+def ts_mean(df: pd.DataFrame, window: int) -> pd.DataFrame:
+    """Time-series mean over the past 'window' days."""
+    return df.rolling(window).mean()
+
 def ts_min(df: pd.DataFrame, window: int) -> pd.DataFrame:
     """Time-series minimum over the past 'window' days."""
     return df.rolling(window).min()
@@ -118,6 +127,9 @@ def stddev(df: pd.DataFrame, window: int) -> pd.DataFrame:
     """Moving standard deviation."""
     return df.rolling(window).std()
 
+ts_std = stddev
+
+
 def ts_rank(df: pd.DataFrame, window: int) -> pd.DataFrame:
     """
     Time-series rank.
@@ -133,3 +145,13 @@ def log(df: pd.DataFrame) -> pd.DataFrame:
 def sign(df: pd.DataFrame) -> pd.DataFrame:
     """Sign function (-1, 0, 1)."""
     return np.sign(df)
+
+def indneutralize(df: pd.DataFrame, industry_groups: Optional[pd.DataFrame] = None) -> pd.DataFrame:
+    """
+    Industry neutralization.
+    
+    Projecting out the industry mean.
+    Since industry data is not currently available, this is a pass-through (identity).
+    """
+    # TODO: Implement actual neutralization when sector data is available.
+    return df

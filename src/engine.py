@@ -1,5 +1,5 @@
 import pandas as pd
-from typing import Callable, Optional
+from typing import Callable, Optional, List, Literal, Union
 from src.market_data import MarketData
 
 class AlphaEngine:
@@ -9,12 +9,10 @@ class AlphaEngine:
     
     def __init__(self, data: MarketData):
         self.data = data
-        self.tickers = data.tickers
-        self.dates = data.dates
 
     def run_alpha(self, alpha_func: Callable, **kwargs) -> pd.DataFrame:
         """
-        Executes a given alpha function using the robust MarketData container.
+        Executes a given alpha function using the current MarketData container.
         """
         try:
             # Pass the MarketData object directly.
@@ -32,3 +30,19 @@ class AlphaEngine:
             return result
         except Exception as e:
             raise RuntimeError(f"Error executing alpha: {e}")
+
+    def run_on_subset(self, tickers: List[str], alpha_func: Callable, **kwargs) -> pd.DataFrame:
+        """
+        Run alpha on a specific subset of tickers.
+        """
+        subset_data = self.data.subset(tickers)
+        engine = AlphaEngine(subset_data)
+        return engine.run_alpha(alpha_func, **kwargs)
+
+    def run_on_basket(self, alpha_func: Callable, tickers: List[str] = None, method: Literal['equal', 'price'] = 'equal', **kwargs) -> pd.DataFrame:
+        """
+        Run alpha on a synthetic basket created from the tickers.
+        """
+        basket_data = self.data.create_basket(name="BASKET", method=method, tickers=tickers)
+        engine = AlphaEngine(basket_data)
+        return engine.run_alpha(alpha_func, **kwargs)
